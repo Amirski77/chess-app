@@ -8,8 +8,7 @@ const src = resolve(root, "node_modules/stockfish/bin");
 const dst = resolve(root, "public/stockfish");
 
 const files = [
-  "stockfish-18-lite-single.js",
-  "stockfish-18-lite-single.wasm",
+  "stockfish-18-asm.js",
 ];
 
 try {

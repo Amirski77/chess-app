@@ -11,7 +11,7 @@ export const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
   hard: { skillLevel: 20, movetime: 2000 },
 };
 
-const ENGINE_URL = "/stockfish/stockfish-18-lite-single.js";
+const ENGINE_URL = "/stockfish/stockfish-18-asm.js";
 
 let worker: Worker | null = null;
 let lastSkill: number | null = null;

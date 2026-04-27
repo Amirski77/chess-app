@@ -1,15 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import type { Square } from "react-chessboard/dist/chessboard/types";
+import { getBestMove, type Difficulty } from "@/lib/stockfish";
+
+type Mode = "human" | "ai";
+type PlayerColor = "w" | "b";
 
 export default function Home() {
   const [game, setGame] = useState(() => new Chess());
   const [position, setPosition] = useState(() => game.fen());
   const [moveCount, setMoveCount] = useState(0);
   const [boardWidth, setBoardWidth] = useState(360);
+
+  const [mode, setMode] = useState<Mode>("human");
+  const [playerColor, setPlayerColor] = useState<PlayerColor>("w");
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
+  const [aiThinking, setAiThinking] = useState(false);
+
+  const aiCallId = useRef(0);
 
   useEffect(() => {
     const update = () => {
@@ -30,7 +41,6 @@ export default function Home() {
     if (game.isDraw()) return "Draw";
     if (game.isCheck()) return "Check";
     return null;
-    // position changes whenever a legal move mutates the game instance
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position]);
 
@@ -38,8 +48,12 @@ export default function Home() {
   const gameOver =
     game.isCheckmate() || game.isStalemate() || game.isDraw();
 
+  const isPlayersTurn =
+    mode === "human" || game.turn() === playerColor;
+
   const onPieceDrop = useCallback(
     (sourceSquare: Square, targetSquare: Square): boolean => {
+      if (mode === "ai" && game.turn() !== playerColor) return false;
       try {
         const move = game.move({
           from: sourceSquare,
@@ -54,35 +68,122 @@ export default function Home() {
       setMoveCount((c) => c + 1);
       return true;
     },
-    [game]
+    [game, mode, playerColor],
   );
 
+  // AI move trigger
+  useEffect(() => {
+    if (mode !== "ai" || gameOver || game.turn() === playerColor) {
+      setAiThinking(false);
+      return;
+    }
+
+    const callId = ++aiCallId.current;
+    setAiThinking(true);
+
+    getBestMove(game.fen(), difficulty)
+      .then((bestmove) => {
+        if (callId !== aiCallId.current) return;
+        if (!bestmove || bestmove === "(none)") return;
+        const from = bestmove.slice(0, 2);
+        const to = bestmove.slice(2, 4);
+        const promotion = bestmove.length === 5 ? bestmove[4] : undefined;
+        try {
+          game.move({ from, to, ...(promotion ? { promotion } : {}) });
+          setPosition(game.fen());
+          setMoveCount((c) => c + 1);
+        } catch (e) {
+          console.error("AI illegal move:", bestmove, e);
+        }
+      })
+      .catch((e) => {
+        if (callId === aiCallId.current) console.error("Stockfish error:", e);
+      })
+      .finally(() => {
+        if (callId === aiCallId.current) setAiThinking(false);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position, mode, playerColor, difficulty]);
+
   const newGame = () => {
+    aiCallId.current++;
     const fresh = new Chess();
     setGame(fresh);
     setPosition(fresh.fen());
     setMoveCount(0);
+    setAiThinking(false);
   };
 
+  const handleModeChange = (next: Mode) => {
+    if (next === mode) return;
+    aiCallId.current++;
+    setMode(next);
+    setAiThinking(false);
+  };
+
+  const canDrag = !gameOver && !aiThinking && isPlayersTurn;
+
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center gap-6 p-4">
+    <main className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center gap-5 p-4">
+      <div className="flex flex-col items-center gap-3 w-full max-w-md">
+        <SegmentedToggle
+          options={[
+            { value: "human", label: "Two players" },
+            { value: "ai", label: "vs AI" },
+          ]}
+          value={mode}
+          onChange={handleModeChange}
+        />
+
+        {mode === "ai" && (
+          <>
+            <SegmentedToggle
+              options={[
+                { value: "easy", label: "Easy" },
+                { value: "medium", label: "Medium" },
+                { value: "hard", label: "Hard" },
+              ]}
+              value={difficulty}
+              onChange={setDifficulty}
+            />
+            <SegmentedToggle
+              options={[
+                { value: "w", label: "Play as White" },
+                { value: "b", label: "Play as Black" },
+              ]}
+              value={playerColor}
+              onChange={(c) => {
+                aiCallId.current++;
+                setPlayerColor(c);
+                setAiThinking(false);
+              }}
+            />
+          </>
+        )}
+      </div>
+
       <Chessboard
         id="chess-board"
         position={position}
         onPieceDrop={onPieceDrop}
         boardWidth={boardWidth}
-        arePiecesDraggable={!gameOver}
+        boardOrientation={playerColor === "b" ? "black" : "white"}
+        arePiecesDraggable={canDrag}
         customBoardStyle={{
           borderRadius: "4px",
           boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
         }}
       />
 
-      <div className="text-center space-y-1">
+      <div className="text-center space-y-1 min-h-[5rem]">
         <p className="text-lg font-medium">
           Turn: <span className="text-slate-300">{turnLabel}</span>
         </p>
-        <p className="text-sm text-slate-400">Moves played: {moveCount}</p>
+        {aiThinking ? (
+          <p className="text-sm text-sky-400">Thinking…</p>
+        ) : (
+          <p className="text-sm text-slate-400">Moves played: {moveCount}</p>
+        )}
         {status && (
           <p className="text-yellow-400 font-medium">{status}</p>
         )}
@@ -95,5 +196,37 @@ export default function Home() {
         New game
       </button>
     </main>
+  );
+}
+
+function SegmentedToggle<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (next: T) => void;
+}) {
+  return (
+    <div className="inline-flex bg-slate-800 rounded-md p-1 gap-1">
+      {options.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <button
+            key={opt.value}
+            onClick={() => onChange(opt.value)}
+            className={
+              "px-3 py-1.5 text-sm rounded transition-colors " +
+              (active
+                ? "bg-slate-600 text-slate-100"
+                : "text-slate-400 hover:text-slate-200")
+            }
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

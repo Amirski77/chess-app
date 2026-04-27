@@ -162,18 +162,20 @@ export default function Home() {
         )}
       </div>
 
-      <Chessboard
-        id="chess-board"
-        position={position}
-        onPieceDrop={onPieceDrop}
-        boardWidth={boardWidth}
-        boardOrientation={playerColor === "b" ? "black" : "white"}
-        arePiecesDraggable={canDrag}
-        customBoardStyle={{
-          borderRadius: "4px",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-        }}
-      />
+      <div style={{ width: boardWidth }}>
+        <Chessboard
+          id="chess-board"
+          position={position}
+          onPieceDrop={onPieceDrop}
+          boardWidth={boardWidth}
+          boardOrientation={playerColor === "b" ? "black" : "white"}
+          arePiecesDraggable={canDrag}
+          customBoardStyle={{
+            borderRadius: "4px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+          }}
+        />
+      </div>
 
       <div className="text-center space-y-1 min-h-[5rem]">
         <p className="text-lg font-medium">

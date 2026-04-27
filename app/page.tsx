@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import type { Square } from "react-chessboard/dist/chessboard/types";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { getBestMove, type Difficulty } from "@/lib/stockfish";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 
 type Mode = "human" | "ai";
 type PlayerColor = "w" | "b";
@@ -21,6 +23,19 @@ export default function Home() {
   const [aiThinking, setAiThinking] = useState(false);
 
   const aiCallId = useRef(0);
+  const savedRef = useRef(false);
+  const supabaseRef = useRef<SupabaseClient | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const supabase = createSupabaseClient();
+    supabaseRef.current = supabase;
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event, session) => setUser(session?.user ?? null),
+    );
+    return () => subscription.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const update = () => {
@@ -105,8 +120,44 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position, mode, playerColor, difficulty]);
 
+  // Save completed game once per finished game
+  useEffect(() => {
+    if (!gameOver || !user || savedRef.current) return;
+    const supabase = supabaseRef.current;
+    if (!supabase) return;
+
+    let result: string;
+    if (game.isCheckmate()) {
+      result = game.turn() === "w" ? "black_wins" : "white_wins";
+    } else if (game.isDraw() || game.isStalemate()) {
+      result = "draw";
+    } else {
+      return;
+    }
+
+    savedRef.current = true;
+    supabase
+      .from("games")
+      .insert({
+        user_id: user.id,
+        opponent: mode === "ai" ? "ai" : "human",
+        difficulty: mode === "ai" ? difficulty : null,
+        user_color: mode === "ai" ? playerColor : null,
+        result,
+        pgn: game.pgn(),
+      })
+      .then(({ error }) => {
+        if (error) {
+          console.error("Save game failed:", error);
+          savedRef.current = false;
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position, user]);
+
   const newGame = () => {
     aiCallId.current++;
+    savedRef.current = false;
     const fresh = new Chess();
     setGame(fresh);
     setPosition(fresh.fen());
@@ -124,7 +175,7 @@ export default function Home() {
   const canDrag = !gameOver && !aiThinking && isPlayersTurn;
 
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center gap-5 p-4">
+    <main className="min-h-[calc(100vh-3.5rem)] bg-slate-900 text-slate-100 flex flex-col items-center justify-center gap-5 p-4">
       <div className="flex flex-col items-center gap-3 w-full max-w-md">
         <SegmentedToggle
           options={[

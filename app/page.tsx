@@ -5,8 +5,23 @@ import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import type { Square } from "react-chessboard/dist/chessboard/types";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { getBestMove, type Difficulty } from "@/lib/stockfish";
+import {
+  getBestMove,
+  evaluatePosition,
+  type Difficulty,
+} from "@/lib/stockfish";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import {
+  initAudio,
+  playTrack,
+  stopMusic,
+  playCheckmate,
+  playClick,
+  playCapture,
+  playCheck,
+  setMuted,
+  bucketFromEval,
+} from "@/lib/audio";
 
 type Mode = "human" | "ai";
 type PlayerColor = "w" | "b";
@@ -22,7 +37,11 @@ export default function Home() {
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [aiThinking, setAiThinking] = useState(false);
 
+  const [musicStarted, setMusicStarted] = useState(false);
+  const [muted, setMutedState] = useState(false);
+
   const aiCallId = useRef(0);
+  const evalCallId = useRef(0);
   const savedRef = useRef(false);
   const supabaseRef = useRef<SupabaseClient | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -79,11 +98,16 @@ export default function Home() {
       } catch {
         return false;
       }
+      if (!musicStarted) {
+        initAudio();
+        playTrack("base");
+        setMusicStarted(true);
+      }
       setPosition(game.fen());
       setMoveCount((c) => c + 1);
       return true;
     },
-    [game, mode, playerColor],
+    [game, mode, playerColor, musicStarted],
   );
 
   // AI move trigger
@@ -119,6 +143,63 @@ export default function Home() {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position, mode, playerColor, difficulty]);
+
+  // SFX + reactive music dispatch after every move
+  useEffect(() => {
+    if (moveCount === 0) return;
+    initAudio();
+
+    if (game.isCheckmate()) {
+      // Bump evalCallId so any in-flight eval from BEFORE this move
+      // can't slip past the .then() guard and call playTrack on a
+      // game that's already over.
+      evalCallId.current++;
+      const loser = game.turn();
+      const winner: PlayerColor = loser === "w" ? "b" : "w";
+      const humanWon = mode === "human" || winner === playerColor;
+      if (humanWon) {
+        playCheckmate();
+      } else {
+        stopMusic();
+      }
+      return;
+    }
+
+    // Move SFX (priority: check > capture > click)
+    if (game.isCheck()) {
+      playCheck();
+    } else {
+      const lastMove = game.history({ verbose: true }).slice(-1)[0];
+      if (lastMove?.captured) {
+        playCapture();
+      } else {
+        playClick();
+      }
+    }
+
+    // Stop music on draw/stalemate (game-end without checkmate stinger)
+    if (game.isStalemate() || game.isDraw()) {
+      evalCallId.current++;
+      stopMusic();
+      return;
+    }
+
+    // Eval-driven track switch — only after music has been started by player gesture
+    if (!musicStarted) return;
+
+    const callId = ++evalCallId.current;
+    evaluatePosition(game.fen())
+      .then((score) => {
+        if (callId !== evalCallId.current) return;
+        const sideToMove = game.turn();
+        const anchor: PlayerColor = mode === "ai" ? playerColor : "w";
+        const matches = sideToMove === anchor;
+        const bucket = bucketFromEval(score, matches);
+        playTrack(bucket);
+      })
+      .catch((e) => console.error("Eval failed:", e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moveCount]);
 
   // Save completed game once per finished game
   useEffect(() => {
@@ -157,7 +238,10 @@ export default function Home() {
 
   const newGame = () => {
     aiCallId.current++;
+    evalCallId.current++;
     savedRef.current = false;
+    stopMusic();
+    setMusicStarted(false);
     const fresh = new Chess();
     setGame(fresh);
     setPosition(fresh.fen());
@@ -170,6 +254,12 @@ export default function Home() {
     aiCallId.current++;
     setMode(next);
     setAiThinking(false);
+  };
+
+  const toggleMute = () => {
+    const next = !muted;
+    setMutedState(next);
+    setMuted(next);
   };
 
   const canDrag = !gameOver && !aiThinking && isPlayersTurn;
@@ -242,12 +332,20 @@ export default function Home() {
         )}
       </div>
 
-      <button
-        onClick={newGame}
-        className="bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-slate-100 px-5 py-2 rounded-md transition-colors"
-      >
-        New game
-      </button>
+      <div className="flex gap-2 flex-wrap justify-center">
+        <button
+          onClick={newGame}
+          className="bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-slate-100 px-5 py-2 rounded-md transition-colors"
+        >
+          New game
+        </button>
+        <button
+          onClick={toggleMute}
+          className="bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-slate-100 px-5 py-2 rounded-md transition-colors"
+        >
+          {muted ? "Unmute" : "Mute"}
+        </button>
+      </div>
     </main>
   );
 }

@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chess — A Game That Sounds Like You're Winning (or Losing)
 
-## Getting Started
+Most chess apps treat your game like a transaction: moves in, result out. Chess treats it like an experience.
 
-First, run the development server:
+As you play, a reactive soundtrack responds to your position in real time — evaluated by Stockfish after every move. When you're winning, the music builds. When you're losing, it turns dark. When you deliver checkmate, the beat drops. When the AI mates you, silence.
+
+**Live:** https://chess-app-zeta-two.vercel.app
+
+---
+
+## What it does
+
+- **Reactive soundtrack** — 4 original tracks generated specifically for this app. Stockfish evaluates your position (±100 centipawn threshold) and crossfades between base / advantage / tension layers. Procedural sound effects (click, capture, check) via Web Audio API — no extra files.
+- **AI opponent** — Stockfish WASM running in-browser via Web Worker. Three difficulty levels: Easy (Skill 0, 300ms), Medium (Skill 8, 800ms), Hard (Skill 20, 2000ms). Choose your color.
+- **Full chess rules** — powered by chess.js: castling, en passant, promotion, check/stalemate/draw detection.
+- **Auth + game history** — Supabase email/password auth. Every completed game saved to your account. Row-level security: you only see your own games.
+- **Light/dark theme** — toggle persists across sessions, no flash-of-wrong-theme on load.
+- **Mobile-responsive** — plays on any screen size.
+
+---
+
+## Who it's for
+
+Chess players who also care about atmosphere. The generation that grew up with Spotify playlists as emotional timestamps — not PGN files.
+
+---
+
+## Tech stack
+
+- **Next.js 14** (App Router, TypeScript, Tailwind CSS)
+- **chess.js** — rules engine
+- **react-chessboard** — board UI
+- **Stockfish** (asm.js, Web Worker) — AI + position evaluation
+- **Howler.js** — multi-track audio with crossfade
+- **Web Audio API** — procedural SFX
+- **Supabase** — auth + PostgreSQL + RLS
+- **Vercel** — deployment
+
+---
+
+## What's next
+
+- **Real-time multiplayer** via Supabase Realtime / WebSockets — invite a friend by link
+- **AI Coach** — post-game analysis via Claude API: "Here's where you lost the advantage"
+- **Spotify integration** — AI-curated soundtrack based on your listening history
+- **Shareable game replays** — 30-second highlight reel with your game's soundtrack
+- **ELO rating system** and global leaderboard by city
+
+---
+
+## Running locally
 
 ```bash
+git clone https://github.com/Amirski77/chess-app
+cd chess-app
+npm install
+# add .env.local with NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*Built for nFactorial Incubator 2026 in 36 hours.*

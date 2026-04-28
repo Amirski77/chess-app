@@ -265,7 +265,7 @@ export default function Home() {
   const canDrag = !gameOver && !aiThinking && isPlayersTurn;
 
   return (
-    <main className="min-h-[calc(100vh-3.5rem)] bg-slate-900 text-slate-100 flex flex-col items-center justify-center gap-5 p-4">
+    <main className="min-h-[calc(100vh-3.5rem)] bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col items-center justify-center gap-5 p-4">
       <div className="flex flex-col items-center gap-3 w-full max-w-md">
         <SegmentedToggle
           options={[
@@ -320,28 +320,28 @@ export default function Home() {
 
       <div className="text-center space-y-1 min-h-[5rem]">
         <p className="text-lg font-medium">
-          Turn: <span className="text-slate-300">{turnLabel}</span>
+          Turn: <span className="text-slate-700 dark:text-slate-300">{turnLabel}</span>
         </p>
         {aiThinking ? (
-          <p className="text-sm text-sky-400">Thinking…</p>
+          <p className="text-sm text-sky-600 dark:text-sky-400">Thinking…</p>
         ) : (
-          <p className="text-sm text-slate-400">Moves played: {moveCount}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Moves played: {moveCount}</p>
         )}
         {status && (
-          <p className="text-yellow-400 font-medium">{status}</p>
+          <p className="text-yellow-600 dark:text-yellow-400 font-medium">{status}</p>
         )}
       </div>
 
       <div className="flex gap-2 flex-wrap justify-center">
         <button
           onClick={newGame}
-          className="bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-slate-100 px-5 py-2 rounded-md transition-colors"
+          className="bg-slate-300 hover:bg-slate-400 active:bg-slate-200 text-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 dark:active:bg-slate-800 dark:text-slate-100 px-5 py-2 rounded-md transition-colors"
         >
           New game
         </button>
         <button
           onClick={toggleMute}
-          className="bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-slate-100 px-5 py-2 rounded-md transition-colors"
+          className="bg-slate-300 hover:bg-slate-400 active:bg-slate-200 text-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 dark:active:bg-slate-800 dark:text-slate-100 px-5 py-2 rounded-md transition-colors"
         >
           {muted ? "Unmute" : "Mute"}
         </button>
@@ -360,7 +360,7 @@ function SegmentedToggle<T extends string>({
   onChange: (next: T) => void;
 }) {
   return (
-    <div className="inline-flex bg-slate-800 rounded-md p-1 gap-1">
+    <div className="inline-flex bg-slate-200 dark:bg-slate-800 rounded-md p-1 gap-1">
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -370,8 +370,8 @@ function SegmentedToggle<T extends string>({
             className={
               "px-3 py-1.5 text-sm rounded transition-colors " +
               (active
-                ? "bg-slate-600 text-slate-100"
-                : "text-slate-400 hover:text-slate-200")
+                ? "bg-slate-400 text-slate-900 dark:bg-slate-600 dark:text-slate-100"
+                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200")
             }
           >
             {opt.label}
